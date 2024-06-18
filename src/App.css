@@ -1,2 +1,19 @@
 /* ./src/App.css */
 @import './index.css';
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.spinner-border {
+    border-top-color: transparent;
+    border-right-color: transparent;
+    border-bottom-color: currentColor;
+    border-left-color: currentColor;
+}
+
