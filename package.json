@@ -1,5 +1,5 @@
 {
-  "name": "file-convertor",
+  "name": "FileConvertor",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
