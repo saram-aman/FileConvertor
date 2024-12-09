@@ -159,7 +159,7 @@ class FileConverter extends Component {
     };
 
     render() {
-        const { loading, conversionFormat, queue } = this.state
+        const { loading, conversionFormat, queue } = this.state;
         return (
             <div className="container mx-auto mt-8 p-6 bg-white rounded shadow-md">
                 <h1 className="text-3xl font-bold mb-6 text-center text-blue-600">File Converter</h1>
