@@ -372,8 +372,10 @@ function stripExtension(name) {
 
 function getFileIcon(name) {
   const ext = (name || '').split('.').pop().toLowerCase();
-  const map = { pdf:'📕', docx:'📘', doc:'📘', txt:'📄', html:'🌐',
-                htm:'🌐', csv:'📊', json:'🔧', md:'📝', xml:'🔖' };
+  const map = {
+    pdf: '📕', docx: '📘', doc: '📘', txt: '📄', html: '🌐',
+    htm: '🌐', csv: '📊', json: '🔧', md: '📝', xml: '🔖'
+  };
   return map[ext] || '📄';
 }
 
@@ -404,34 +406,34 @@ function crc32(data) {
 function buildZip(files) {
   const enc = new TextEncoder();
   const u16 = n => [n & 0xFF, (n >> 8) & 0xFF];
-  const u32 = n => [n & 0xFF, (n>>8)&0xFF, (n>>16)&0xFF, (n>>24)&0xFF];
+  const u32 = n => [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF];
   const dosDate = () => {
     const d = new Date();
-    const date = ((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
-    const time = (d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1);
+    const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
     return [...u16(time), ...u16(date)];
   };
 
   const localHeaders = [];
-  const centralDirs  = [];
+  const centralDirs = [];
   let offset = 0;
 
   for (const [name, content] of Object.entries(files)) {
     const nameBytes = enc.encode(name);
     const dataBytes = enc.encode(content);
-    const checksum  = crc32(dataBytes);
-    const size      = dataBytes.length;
+    const checksum = crc32(dataBytes);
+    const size = dataBytes.length;
 
     const lh = new Uint8Array([
-      0x50,0x4B,0x03,0x04, 0x14,0x00, 0x00,0x00, 0x00,0x00,
+      0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00,
       ...dosDate(), ...u32(checksum), ...u32(size), ...u32(size),
-      ...u16(nameBytes.length), 0x00,0x00, ...nameBytes,
+      ...u16(nameBytes.length), 0x00, 0x00, ...nameBytes,
     ]);
     const cd = new Uint8Array([
-      0x50,0x4B,0x01,0x02, 0x3F,0x00, 0x14,0x00, 0x00,0x00, 0x00,0x00,
+      0x50, 0x4B, 0x01, 0x02, 0x3F, 0x00, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00,
       ...dosDate(), ...u32(checksum), ...u32(size), ...u32(size),
-      ...u16(nameBytes.length), 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00,
-      0x00,0x00,0x00,0x00, ...u32(offset), ...nameBytes,
+      ...u16(nameBytes.length), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, ...u32(offset), ...nameBytes,
     ]);
 
     localHeaders.push({ header: lh, data: dataBytes });
@@ -440,19 +442,19 @@ function buildZip(files) {
   }
 
   const cdOffset = offset;
-  const cdSize   = centralDirs.reduce((s, c) => s + c.length, 0);
-  const n        = centralDirs.length;
+  const cdSize = centralDirs.reduce((s, c) => s + c.length, 0);
+  const n = centralDirs.length;
 
   const end = new Uint8Array([
-    0x50,0x4B,0x05,0x06, 0x00,0x00, 0x00,0x00,
-    ...u16(n), ...u16(n), ...u32(cdSize), ...u32(cdOffset), 0x00,0x00,
+    0x50, 0x4B, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00,
+    ...u16(n), ...u16(n), ...u32(cdSize), ...u32(cdOffset), 0x00, 0x00,
   ]);
 
   const buf = new Uint8Array(offset + cdSize + end.length);
   let pos = 0;
   for (const { header, data } of localHeaders) {
     buf.set(header, pos); pos += header.length;
-    buf.set(data,   pos); pos += data.length;
+    buf.set(data, pos); pos += data.length;
   }
   for (const cd of centralDirs) { buf.set(cd, pos); pos += cd.length; }
   buf.set(end, pos);
@@ -462,7 +464,7 @@ function buildZip(files) {
 function readText(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
-    r.onload  = () => resolve(r.result);
+    r.onload = () => resolve(r.result);
     r.onerror = reject;
     r.readAsText(file);
   });
@@ -472,8 +474,8 @@ async function convertToPDF(file) {
   const text = await readText(file);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const margin  = 50;
-  const pageH   = doc.internal.pageSize.getHeight();
+  const margin = 50;
+  const pageH = doc.internal.pageSize.getHeight();
   const usableW = doc.internal.pageSize.getWidth() - margin * 2;
 
   doc.setFont('Helvetica', 'normal');
@@ -493,7 +495,7 @@ async function convertToPDF(file) {
 
 async function convertToDocx(file) {
   const text = await readText(file);
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   const paragraphs = text.split('\n')
     .map(l => `<w:p><w:r><w:t xml:space="preserve">${esc(l)}</w:t></w:r></w:p>`)
@@ -529,14 +531,14 @@ async function convertToDocx(file) {
 async function convertToTxt(file) {
   const text = await readText(file);
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
   triggerDownload(url, stripExtension(file.name) + '.txt');
   URL.revokeObjectURL(url);
 }
 
 async function convertToHtml(file) {
   const text = await readText(file);
-  const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -553,7 +555,7 @@ async function convertToHtml(file) {
 <body><pre>${escaped}</pre></body>
 </html>`;
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
   triggerDownload(url, stripExtension(file.name) + '.html');
   URL.revokeObjectURL(url);
 }
@@ -561,10 +563,10 @@ async function convertToHtml(file) {
 const CONVERTERS = { pdf: convertToPDF, docx: convertToDocx, txt: convertToTxt, html: convertToHtml };
 
 const FORMATS = [
-  { id: 'pdf',  emoji: '📕', label: 'PDF',  desc: 'Portable doc' },
-  { id: 'docx', emoji: '📘', label: 'DOCX', desc: 'Word doc'     },
-  { id: 'txt',  emoji: '📄', label: 'TXT',  desc: 'Plain text'   },
-  { id: 'html', emoji: '🌐', label: 'HTML', desc: 'Web page'      },
+  { id: 'pdf', emoji: '📕', label: 'PDF', desc: 'Portable doc' },
+  { id: 'docx', emoji: '📘', label: 'DOCX', desc: 'Word doc' },
+  { id: 'txt', emoji: '📄', label: 'TXT', desc: 'Plain text' },
+  { id: 'html', emoji: '🌐', label: 'HTML', desc: 'Web page' },
 ];
 
 function Toast({ toasts }) {
@@ -595,12 +597,12 @@ function QueueItem({ item }) {
 }
 
 export default function FileConverter() {
-  const [file, setFile]             = useState(null);
-  const [format, setFormat]         = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [progress, setProgress]     = useState(0);
-  const [queue, setQueue]           = useState([]);
-  const [toasts, setToasts]         = useState([]);
+  const [file, setFile] = useState(null);
+  const [format, setFormat] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [queue, setQueue] = useState([]);
+  const [toasts, setToasts] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [jspdfReady, setJspdfReady] = useState(false);
   const fileInputRef = useRef(null);
