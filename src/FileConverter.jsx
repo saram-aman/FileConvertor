@@ -699,7 +699,7 @@ export default function FileConverter() {
             FileForge
           </div>
           <h1 className="fc-h1">Convert <span>anything.</span></h1>
-          <p className="fc-subtitle">// drag, drop, convert — no servers, no uploads, 100% local</p>
+          <p className="fc-subtitle">{'// drag, drop, convert — no servers, no uploads, 100% local'}</p>
         </header>
 
         <div className="fc-card">
