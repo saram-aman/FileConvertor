@@ -605,7 +605,7 @@ export default function FileConverter() {
   const [toasts, setToasts] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [jspdfReady, setJspdfReady] = useState(false);
-  const [jszipReady, setJszipReady] = useState(false);
+  const [, setJszipReady] = useState(false);
   const fileInputRef = useRef(null);
   const styleInjected = useRef(false);
 
