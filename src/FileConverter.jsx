@@ -502,30 +502,30 @@ async function convertToDocx(file) {
     .join('\n');
 
   const files = {
-    '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`,
-    '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`,
-    'word/document.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>${paragraphs}<w:sectPr/></w:body>
-</w:document>`,
-    'word/_rels/document.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`,
+    '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n  <Default Extension="xml" ContentType="application/xml"/>\n  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\n</Types>`,
+    '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>\n</Relationships>`,
+    'word/document.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n  <w:body>${paragraphs}<w:sectPr/></w:body>\n</w:document>`,
+    'word/_rels/document.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`,
   };
 
+  // Prefer JSZip when available (more robust zip creation)
+  if (window.JSZip) {
+    const zip = new window.JSZip();
+    for (const [p, c] of Object.entries(files)) zip.file(p, c);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    triggerDownload(url, stripExtension(file.name) + '.docx');
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return;
+  }
+
+  // Fallback: legacy builder
   const blob = new Blob([buildZip(files)], {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   });
   const url = URL.createObjectURL(blob);
   triggerDownload(url, stripExtension(file.name) + '.docx');
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function convertToTxt(file) {
@@ -533,7 +533,7 @@ async function convertToTxt(file) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   triggerDownload(url, stripExtension(file.name) + '.txt');
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function convertToHtml(file) {
@@ -557,7 +557,7 @@ async function convertToHtml(file) {
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   triggerDownload(url, stripExtension(file.name) + '.html');
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 const CONVERTERS = { pdf: convertToPDF, docx: convertToDocx, txt: convertToTxt, html: convertToHtml };
@@ -605,6 +605,7 @@ export default function FileConverter() {
   const [toasts, setToasts] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [jspdfReady, setJspdfReady] = useState(false);
+  const [jszipReady, setJszipReady] = useState(false);
   const fileInputRef = useRef(null);
   const styleInjected = useRef(false);
 
@@ -623,6 +624,14 @@ export default function FileConverter() {
       document.head.appendChild(script);
     } else {
       setJspdfReady(true);
+    }
+    if (!window.JSZip) {
+      const s2 = document.createElement('script');
+      s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s2.onload = () => setJszipReady(true);
+      document.head.appendChild(s2);
+    } else {
+      setJszipReady(true);
     }
   }, []);
 
