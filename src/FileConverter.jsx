@@ -471,24 +471,71 @@ function readText(file) {
 }
 
 async function convertToPDF(file) {
+  const extension = file.name.split('.').pop().toLowerCase();
+  if (extension === 'docx') {
+    if (!window.JSZip) throw new Error('DOCX engine is still loading. Please try again.');
+    return convertDocxToPDF(file);
+  }
   const text = await readText(file);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const margin = 50;
   const pageH = doc.internal.pageSize.getHeight();
   const usableW = doc.internal.pageSize.getWidth() - margin * 2;
-
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(11);
-
   let y = margin + 10;
-  for (const rawLine of text.split('\n')) {
+  for (const rawLine of text.split(/\r?\n/)) {
     const wrapped = doc.splitTextToSize(rawLine || ' ', usableW);
     for (const line of wrapped) {
       if (y + 14 > pageH - margin) { doc.addPage(); y = margin + 10; }
       doc.text(line, margin, y);
       y += 14;
     }
+  }
+  doc.save(stripExtension(file.name) + '.pdf');
+}
+
+async function convertDocxToPDF(file) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const margin = 50;
+  const pageH = doc.internal.pageSize.getHeight();
+  const usableW = doc.internal.pageSize.getWidth() - margin * 2;
+  const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+  const entry = zip.file('word/document.xml');
+  if (!entry) throw new Error('The DOCX document has no main document.');
+  const xmlDoc = new DOMParser().parseFromString(await entry.async('text'), 'application/xml');
+  if (xmlDoc.querySelector('parsererror')) throw new Error('The DOCX document is invalid.');
+  const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const value = (node, name) => node?.getAttributeNS(ns, name) || node?.getAttribute('w:' + name);
+  const paragraphs = [...xmlDoc.getElementsByTagNameNS(ns, 'p')];
+  let y = margin + 10;
+  for (const paragraph of paragraphs) {
+    const properties = paragraph.getElementsByTagNameNS(ns, 'pPr')[0];
+    const style = value(properties?.getElementsByTagNameNS(ns, 'pStyle')[0], 'val') || '';
+    const isList = Boolean(properties?.getElementsByTagNameNS(ns, 'numPr')[0]);
+    const isHeading = /^Heading[1-6]$/i.test(style);
+    const fontSize = isHeading ? Math.max(12, 20 - Number(style.slice(-1) || 1) * 2) : 11;
+    const lineHeight = fontSize * 1.35;
+    const runs = [...paragraph.getElementsByTagNameNS(ns, 'r')];
+    const pieces = runs.map(run => {
+      const text = [...run.getElementsByTagNameNS(ns, 't')].map(n => n.textContent).join('');
+      const runPr = run.getElementsByTagNameNS(ns, 'rPr')[0];
+      return { text, bold: Boolean(runPr?.getElementsByTagNameNS(ns, 'b').length) };
+    }).filter(piece => piece.text);
+    const plainText = pieces.map(piece => piece.text).join('');
+    if (!plainText && !isList) { y += lineHeight * 0.65; continue; }
+    const indent = isList ? 18 : 0;
+    const lines = doc.splitTextToSize((isList ? '• ' : '') + plainText, usableW - indent);
+    for (const line of lines) {
+      if (y + lineHeight > pageH - margin) { doc.addPage(); y = margin + 10; }
+      doc.setFont('Helvetica', isHeading || pieces.some(piece => piece.bold) ? 'bold' : 'normal');
+      doc.setFontSize(fontSize);
+      doc.text(line, margin + indent, y);
+      y += lineHeight;
+    }
+    y += isHeading ? 5 : 2;
   }
   doc.save(stripExtension(file.name) + '.pdf');
 }
@@ -605,7 +652,7 @@ export default function FileConverter() {
   const [toasts, setToasts] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [jspdfReady, setJspdfReady] = useState(false);
-  const [, setJszipReady] = useState(false);
+  const [jszipReady, setJszipReady] = useState(false);
   const fileInputRef = useRef(null);
   const styleInjected = useRef(false);
 
@@ -672,8 +719,8 @@ export default function FileConverter() {
 
   const handleConvert = useCallback(async () => {
     if (!file || !format || loading) return;
-    if (format === 'pdf' && !jspdfReady) {
-      showToast('PDF engine still loading, try again in a moment.', 'error');
+    if (format === 'pdf' && (!jspdfReady || (file.name.toLowerCase().endsWith('.docx') && !jszipReady))) {
+      showToast('PDF engine is still loading, try again in a moment.', 'error');
       return;
     }
 
@@ -695,7 +742,7 @@ export default function FileConverter() {
       setLoading(false);
       setTimeout(() => setProgress(0), 800);
     }
-  }, [file, format, loading, jspdfReady, addToQueue, updateQueue, showToast]);
+  }, [file, format, loading, jspdfReady, jszipReady, addToQueue, updateQueue, showToast]);
 
   const isReady = file && format && !loading;
 
